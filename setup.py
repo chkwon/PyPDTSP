@@ -25,7 +25,7 @@ import tarfile
 import tempfile
 import urllib.request
 
-from setuptools import setup
+from setuptools import Distribution, setup
 from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.develop import develop as _develop
 
@@ -327,25 +327,45 @@ class DevelopCommand(_develop):
 
 class BdistWheelPlatformSpecific(_bdist_wheel):
     """Mark the wheel as platform-specific even though we have no
-    setuptools `Extension` modules.
+    `setuptools.Extension` modules.
 
-    We ship native binaries (`pdphgs`, `pdprr`) inside the package as
-    `package_data`, not as compiled extensions, so setuptools' default
-    is to tag the wheel as ``py3-none-any`` (pure-Python, universal).
-    That's wrong for us — the binaries are arch-specific — and
-    cibuildwheel 3.x explicitly rejects the resulting wheel with
-    ``Build failed because a pure Python wheel was generated``.
+    Combined with ``BinaryDistribution.has_ext_modules() → True``
+    below, this puts the native binaries (`pdphgs`, `pdprr`) directly
+    under ``pdtsp/`` in the wheel (platlib root) instead of the default
+    ``pdtsp-0.1.0.data/purelib/pdtsp/`` location, which is what
+    ``auditwheel repair`` (Linux) and ``delocate-wheel`` (macOS) expect
+    for binary content. Without this, both repair tools reject the
+    wheel ("Invalid binary wheel, found shared library in purelib").
 
-    Setting ``root_is_pure = False`` switches the wheel tag to
-    ``py3-none-<platform>`` (e.g. ``py3-none-manylinux_2_28_x86_64``,
-    ``py3-none-macosx_11_0_arm64``), which is correct: the package is
-    pure-Python from CPython's perspective (no ABI binding) but the
-    binaries inside are platform-specific.
+    The wheel tag also moves from ``py3-none-any`` to a platform-
+    specific tag (e.g. ``cp313-cp313-macosx_15_0_arm64``), which
+    cibuildwheel 3.x requires (it errors on ``py3-none-any``).
     """
 
     def finalize_options(self):
         super().finalize_options()
         self.root_is_pure = False
+
+
+class BinaryDistribution(Distribution):
+    """Tell setuptools this distribution contains platform-specific
+    binaries even though it has no `setuptools.Extension` modules.
+
+    The native executables (`pdphgs`, `pdprr`) are shipped via
+    ``package_data`` and invoked through ``subprocess``, so they're
+    not technically C extensions — but they ARE platform-specific.
+    setuptools doesn't notice that on its own; this `distclass`
+    override is the canonical idiom for the case (see the
+    `auditwheel`/`delocate` user guides, and packages like
+    `cmake`-installed-via-pip).
+
+    Without this override, setuptools routes package_data files into
+    the wheel's ``purelib/`` data dir, and the repair tools refuse
+    to process them.
+    """
+
+    def has_ext_modules(self):  # noqa: D401
+        return True
 
 
 setup(
@@ -354,4 +374,5 @@ setup(
         "develop": DevelopCommand,
         "bdist_wheel": BdistWheelPlatformSpecific,
     },
+    distclass=BinaryDistribution,
 )

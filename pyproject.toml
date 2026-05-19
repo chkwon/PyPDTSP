@@ -96,6 +96,16 @@ before-all = "brew install boost cmake"
 # Rosetta or fetched from a different package manager) — out of scope
 # for v0.1.0. Intel Mac users can install from sdist.
 archs = ["arm64"]
+# brew's Boost dylibs on macos-latest (currently macOS 15 Sequoia
+# runners) are compiled with a minimum-OS-target of 15.0. cibuildwheel's
+# default MACOSX_DEPLOYMENT_TARGET for arm64 is 11.0, which makes
+# delocate-wheel reject the bundled dylibs ("Library dependencies do
+# not satisfy target MacOS version 11.0"). Bump the target to match
+# the dylibs. End users on macOS < 15 fall back to the sdist (the same
+# build will succeed against their local brew Boost compiled for their
+# OS). When GitHub's macos-latest rolls to a newer macOS, bump this in
+# lockstep; in the meantime, the runner OS is the floor.
+environment = { MACOSX_DEPLOYMENT_TARGET = "15.0" }
 
 # Windows wheels deferred to v0.2 — vcpkg's per-component Boost ports
 # don't integrate with the umbrella `find_package(Boost ...)` call that
