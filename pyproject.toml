@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdtsp"
+version = "0.1.0"
+description = "Python wrapper for the PDP-HGS and PDP-RR solvers (vidalt/PDTSP) for the Pickup-and-Delivery Traveling Salesman Problem"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [
+    { name = "Changhyun Kwon", email = "changhyun.kwon@omelet.ai" },
+]
+keywords = [
+    "PDTSP",
+    "pickup-and-delivery",
+    "TSP",
+    "vehicle routing",
+    "metaheuristic",
+    "HGS",
+    "ruin and recreate",
+    "operations research",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Homepage = "https://github.com/chkwon/PyPDTSP"
+Issues = "https://github.com/chkwon/PyPDTSP/issues"
+"PDTSP Paper" = "https://doi.org/10.1287/trsc.2022.1170"
+"Upstream Source" = "https://github.com/vidalt/PDTSP"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pdtsp*"]
+
+[tool.setuptools.package-data]
+pdtsp = ["pdphgs", "pdphgs.exe", "pdprr", "pdprr.exe"]
+
+# -----------------------------------------------------------------------------
+# cibuildwheel — release.yml drives this; the matrix is intentionally narrow
+# (CPython 3.10–3.13, x86_64 + arm64 on macOS, x86_64 on Linux, AMD64 on
+# Windows). musllinux and PyPy are skipped because Boost wheels there are
+# fragile and out of scope for v0.1.
+# -----------------------------------------------------------------------------
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux_* *-win32 *-manylinux_i686 pp*"
+test-requires = "pytest"
+test-command = "pytest {package}/pdtsp/tests -v"
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+# manylinux_2_28 ships gcc-toolset-12 + cmake but no Boost — install via dnf.
+before-all = "dnf install -y boost-devel || yum install -y boost-devel"
+
+[tool.cibuildwheel.macos]
+before-all = "brew install boost cmake"
+# Build for both Intel and Apple Silicon. The ARCHFLAGS env propagates to the
+# C++ compiler invoked by CMake via CMAKE_OSX_ARCHITECTURES (set in setup.py).
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.windows]
+# vcpkg is pre-installed on windows-latest at C:/vcpkg. We install Boost
+# components for static linkage so the resulting wheels don't depend on a
+# DLL set the end user must ship.
+before-all = "vcpkg install boost-program-options boost-filesystem boost-system boost-regex --triplet x64-windows-static-md"
+environment = { CMAKE_TOOLCHAIN_FILE = "C:/vcpkg/scripts/buildsystems/vcpkg.cmake", VCPKG_TARGET_TRIPLET = "x64-windows-static-md" }

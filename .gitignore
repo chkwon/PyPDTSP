@@ -1,0 +1,35 @@
+# Generated native binaries (built by setup.py from upstream)
+pdtsp/pdphgs
+pdtsp/pdphgs.exe
+pdtsp/pdprr
+pdtsp/pdprr.exe
+
+# Build artifacts
+build/
+dist/
+wheelhouse/
+*.egg-info/
+*.egg
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp

@@ -1,0 +1,36 @@
+# Source distribution contents.
+#
+# The sdist must include everything needed to (a) rebuild the binaries from
+# upstream and (b) run the test suite. It must NOT include the prebuilt
+# binaries themselves — those are arch-specific and an end user installing
+# from sdist will rebuild them via setup.py. cibuildwheel-produced wheels
+# embed the binaries via [tool.setuptools.package-data] in pyproject.toml.
+
+include README.md
+include LICENSE
+include CLAUDE.md
+include pyproject.toml
+include setup.py
+
+# Test fixtures used by the integration tests.
+recursive-include instances *.PDT *.md
+
+# Examples (shipped so `pip download` users can run them).
+recursive-include examples *.py *.md
+
+# Don't ship the prebuilt binaries inside the sdist — sdist users will
+# rebuild them via setup.py against their own toolchain.
+exclude pdtsp/pdphgs
+exclude pdtsp/pdphgs.exe
+exclude pdtsp/pdprr
+exclude pdtsp/pdprr.exe
+
+# Standard cruft to keep out.
+prune build
+prune dist
+prune wheelhouse
+prune .github
+prune **/__pycache__
+prune **/.pytest_cache
+global-exclude *.py[cod]
+global-exclude .DS_Store
