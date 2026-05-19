@@ -88,9 +88,14 @@ before-all = "dnf install -y boost-devel || yum install -y boost-devel"
 
 [tool.cibuildwheel.macos]
 before-all = "brew install boost cmake"
-# Build for both Intel and Apple Silicon. The ARCHFLAGS env propagates to the
-# C++ compiler invoked by CMake via CMAKE_OSX_ARCHITECTURES (set in setup.py).
-archs = ["x86_64", "arm64"]
+# arm64 only for v0.1.0. GitHub's macos-latest runners are Apple Silicon
+# and brew's Boost binary is arm64-only. Cross-compiling an x86_64 wheel
+# from the arm64 runner fails to link against the brew-arm64 libboost_*,
+# producing "symbol(s) not found for architecture x86_64" at link time.
+# A proper x86_64 build needs an x86_64 Boost source (e.g. compiled in
+# Rosetta or fetched from a different package manager) — out of scope
+# for v0.1.0. Intel Mac users can install from sdist.
+archs = ["arm64"]
 
 # Windows wheels deferred to v0.2 — vcpkg's per-component Boost ports
 # don't integrate with the umbrella `find_package(Boost ...)` call that

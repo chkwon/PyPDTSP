@@ -160,26 +160,29 @@ def _patch_cmakelists(cmakelists: pathlib.Path) -> None:
         "    target_link_libraries(pdprr ${Boost_LIBRARIES})\n"
         "endif ()\n"
     )
-    # Use per-component CONFIG-mode `find_package` instead of the
-    # umbrella `find_package(Boost COMPONENTS ...)`. Reasons:
+    # Use the umbrella `find_package(Boost ...)` with `Boost::<comp>`
+    # imported targets:
     #
-    # * Modern Boost (1.70+) installs per-component CMake configs
-    #   (`boost_program_options-config.cmake`, etc.), and so do brew,
-    #   apt, dnf, and vcpkg ports — all of which we target. The
-    #   per-component packages provide the `Boost::<comp>` imported
-    #   targets directly.
-    # * The umbrella call requires a top-level `BoostConfig.cmake`,
-    #   which vcpkg's Boost ports do **not** ship — only the per-
-    #   component configs. So on Windows the umbrella call fails even
-    #   with `Boost::*` imported targets present, and the fallback
-    #   (legacy FindBoost.cmake) doesn't read vcpkg's layout.
-    # * `system` is header-only since Boost 1.69 — request it as
-    #   non-REQUIRED and skip linking when its target is absent.
+    # * Works with **legacy FindBoost.cmake** (Boost < 1.70, e.g.
+    #   AlmaLinux 8's Boost 1.66 in manylinux_2_28 — `dnf install
+    #   boost-devel`) which provides imported targets but no
+    #   per-component config files.
+    # * Works with **modern BoostConfig.cmake** (Boost ≥ 1.70, e.g.
+    #   brew on macOS, apt on Ubuntu 24.04) — CMake's `find_package`
+    #   falls through from MODULE to CONFIG mode automatically when no
+    #   explicit CONFIG keyword is given.
+    # * `OPTIONAL_COMPONENTS system` + `$<TARGET_NAME_IF_EXISTS:...>`
+    #   handles the fact that `boost_system` has been header-only since
+    #   Boost 1.69, so modern packages don't ship a separate `Boost::system`
+    #   library/target.
+    #
+    # Per-component CONFIG mode (the earlier attempt) was abandoned
+    # because (a) AlmaLinux 8's Boost 1.66 has no per-component configs
+    # — they were introduced in Boost 1.70 — and (b) vcpkg's static-md
+    # Boost on Windows doesn't reliably ship them either.
     boost_block_replacement = (
-        "find_package(boost_program_options CONFIG REQUIRED)\n"
-        "find_package(boost_filesystem CONFIG REQUIRED)\n"
-        "find_package(boost_regex CONFIG REQUIRED)\n"
-        "find_package(boost_system CONFIG)\n"
+        "find_package(Boost REQUIRED COMPONENTS program_options filesystem regex "
+        "OPTIONAL_COMPONENTS system)\n"
         "set(_pdtsp_boost_libs\n"
         "    Boost::program_options Boost::filesystem Boost::regex\n"
         "    $<TARGET_NAME_IF_EXISTS:Boost::system>)\n"
