@@ -70,11 +70,20 @@ pdtsp = ["pdphgs", "pdphgs.exe", "pdprr", "pdprr.exe"]
 build = "cp310-* cp311-* cp312-* cp313-*"
 skip = "*-musllinux_* *-win32 *-manylinux_i686 pp*"
 test-requires = "pytest"
-test-command = "pytest {package}/pdtsp/tests -v"
+# --pyargs imports the test modules from the installed wheel's
+# site-packages copy rather than the source tree, mirroring the
+# pattern in .github/workflows/ci.yml and dodging the local-source-dir
+# shadowing we hit during CI debugging.
+test-command = "pytest --pyargs pdtsp.tests -v"
 build-verbosity = 1
 
 [tool.cibuildwheel.linux]
-# manylinux_2_28 ships gcc-toolset-12 + cmake but no Boost — install via dnf.
+# Pin the AlmaLinux 9 manylinux image: it ships dnf + Boost 1.75+ with
+# the per-component CMake configs (`boost_program_options-config.cmake`
+# etc.) that our patched CMakeLists.txt expects. The older default
+# `manylinux2014` image (CentOS 7, Boost 1.69 via yum) lacks those
+# configs and the upstream find_package call fails.
+manylinux-x86_64-image = "manylinux_2_28"
 before-all = "dnf install -y boost-devel || yum install -y boost-devel"
 
 [tool.cibuildwheel.macos]
