@@ -54,28 +54,42 @@ jobs:
           cache: pip
 
       - name: Install PyPDTSP (builds pdphgs and pdprr from upstream)
-        # `editable_mode=compat` forces the legacy `setup.py develop` path,
-        # which invokes our custom DevelopCommand and builds the binaries.
-        # Without this flag, PEP 660's default "lenient" strategy creates a
-        # thin .pth shim on some Python+OS combos (observed on macOS+Windows
-        # Python 3.10) and silently skips our build_py / develop subclass,
-        # leaving pdtsp/pdphgs and pdtsp/pdprr missing.
-        run: python -m pip install -e ".[test]" --config-settings editable_mode=compat
+        # Non-editable install. PEP 660 editable installs route through
+        # `build_editable`, and on some setuptools/Python combos (observed
+        # on macOS + Windows Python 3.10) setuptools picks the "lenient"
+        # strategy, which writes a thin .pth shim and silently skips our
+        # custom BuildPyCommand/DevelopCommand, leaving the binaries
+        # unbuilt. `--config-settings editable_mode=compat` was tried first
+        # and is honored inconsistently. Non-editable installs always go
+        # through `build_wheel` → `build_py`, which reliably invokes our
+        # BuildPyCommand across every Python version we support.
+        run: python -m pip install ".[test]"
 
-      - name: Verify binaries were built
+      - name: Verify binaries are in the installed package
         shell: bash
         run: |
-          ls pdtsp/
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            test -f pdtsp/pdphgs.exe
-            test -f pdtsp/pdprr.exe
-          else
-            test -f pdtsp/pdphgs
-            test -f pdtsp/pdprr
-          fi
+          python - <<'PY'
+          import pathlib, pdtsp
+          pkg = pathlib.Path(pdtsp.__file__).parent
+          print("pdtsp installed at:", pkg)
+          binaries = list(pkg.glob("pdphgs*")) + list(pkg.glob("pdprr*"))
+          print("binaries:", [b.name for b in binaries])
+          assert any(b.name in ("pdphgs", "pdphgs.exe") for b in binaries), "missing pdphgs"
+          assert any(b.name in ("pdprr",  "pdprr.exe")  for b in binaries), "missing pdprr"
+          PY
 
-      - name: Run tests
-        run: pytest pdtsp/tests/ -v
+      - name: Run tests (via --pyargs from outside the repo)
+        # We `cd` out of the repo so pytest's default sys.path additions
+        # don't insert <repo>/ ahead of site-packages, which would shadow
+        # the installed pdtsp (with binaries) with the local source
+        # (without). `--pyargs pdtsp.tests` imports tests from the
+        # installed package; the small-PDT fixture is inlined in the test,
+        # so no repo-relative paths are needed.
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/pytest-run"
+          cd "$RUNNER_TEMP/pytest-run"
+          python -m pytest --pyargs pdtsp.tests -v
 
       - name: Run examples
         run: |

@@ -1,8 +1,8 @@
 """Integration tests — solve real instances with the bundled binaries.
 
 Skipped cleanly when the binaries aren't present (e.g. on a freshly cloned
-checkout where ``pip install -e .`` hasn't been run yet). The CI matrix
-runs ``pip install -e .`` before pytest, so on CI these tests *must* run.
+checkout where ``pip install`` hasn't been run yet). The CI matrix
+installs the package before pytest, so on CI these tests *must* run.
 """
 from __future__ import annotations
 
@@ -13,8 +13,24 @@ import pytest
 from pdtsp import HGSParameters, HGSSolver, PDTSPSolverError, RRParameters, RRSolver
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SMALL_PDT = REPO_ROOT / "instances" / "small.PDT"
+# Dumitrescu prob5a instance, inlined so this test runs identically whether
+# pytest is invoked from the repo root or from `--pyargs pdtsp.tests` (where
+# the on-disk `instances/` directory isn't accessible). Best-known cost:
+# 3585 (per the .sol file shipped in upstream `vidalt/PDTSP`).
+SMALL_PDT_CONTENT = """11
+1 454 42
+2 336 835 0 7
+3 2 565 0 8
+4 990 188 0 9
+5 366 750 0 10
+6 573 351 0 11
+7 64 133 1 2
+8 154 951 1 3
+9 217 585 1 4
+10 140 807 1 5
+11 211 622 1 6
+-999
+"""
 
 
 def _binary_available(solver_cls) -> bool:
@@ -45,23 +61,23 @@ def _valid_tiny_problem() -> dict:
 
 
 @hgs_required
-def test_hgs_solves_small_pdt_instance() -> None:
-    """Solve the bundled Dumitrescu prob5a instance with HGS."""
-    if not SMALL_PDT.is_file():
-        # When tests run against an installed wheel rather than from the
-        # repo checkout, the instances/ directory may not be on disk. Skip
-        # rather than fail in that case — the wheel doesn't ship instance
-        # files (they're sdist-only).
-        pytest.skip(f"test instance not present at {SMALL_PDT}")
-    # The .PDT writer in the package accepts coordinate dicts. For solving
-    # an existing on-disk instance, we drop down to the same subprocess
-    # invocation the wrapper would emit.
+def test_hgs_solves_small_pdt_instance(tmp_path: Path) -> None:
+    """Solve the inlined Dumitrescu prob5a instance with HGS.
+
+    Best-known cost is 3585; HGS with a 2-second budget on this 10-customer
+    instance should match it to within 5%.
+    """
+    small_pdt = tmp_path / "small.PDT"
+    small_pdt.write_text(SMALL_PDT_CONTENT)
+
+    # The wrapper API takes a coord dict; for solving an existing on-disk
+    # .PDT we drop down to the same subprocess invocation the wrapper would
+    # emit, exercising the binary directly.
     solver = HGSSolver(HGSParameters(time_limit=2, seed=1, it=5_000))
-    # Build argv manually since the small instance is already a .PDT.
     import subprocess
     argv = [
         str(solver._binary_path()),
-        f"--instance={SMALL_PDT}",
+        f"--instance={small_pdt}",
         *solver.parameters.to_argv(),
     ]
     proc = subprocess.run(argv, capture_output=True, text=True, check=False)
@@ -69,8 +85,6 @@ def test_hgs_solves_small_pdt_instance() -> None:
     from pdtsp import _io
     parsed = _io.parse_stdout(proc.stdout)
     assert parsed["cost"] > 0
-    # The best-known cost for prob5a is 3585 (from the bundled .sol). HGS
-    # with a 2-second budget on this 10-customer instance should match it.
     assert parsed["cost"] == pytest.approx(3585, rel=0.05)
     assert parsed["solution"][0] == 0 and parsed["solution"][-1] == 0
 
