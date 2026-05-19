@@ -29,6 +29,14 @@ from setuptools import setup
 from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.develop import develop as _develop
 
+# wheel.bdist_wheel was renamed to setuptools.command.bdist_wheel in
+# setuptools 70 (June 2024). Prefer the new path, fall back for older
+# setuptools where build-system.requires can't enforce it.
+try:
+    from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
+except ImportError:  # setuptools < 70
+    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel  # type: ignore
+
 
 # ---------------------------------------------------------------------------
 # Upstream pinning. To bump:
@@ -317,9 +325,33 @@ class DevelopCommand(_develop):
         super().run()
 
 
+class BdistWheelPlatformSpecific(_bdist_wheel):
+    """Mark the wheel as platform-specific even though we have no
+    setuptools `Extension` modules.
+
+    We ship native binaries (`pdphgs`, `pdprr`) inside the package as
+    `package_data`, not as compiled extensions, so setuptools' default
+    is to tag the wheel as ``py3-none-any`` (pure-Python, universal).
+    That's wrong for us — the binaries are arch-specific — and
+    cibuildwheel 3.x explicitly rejects the resulting wheel with
+    ``Build failed because a pure Python wheel was generated``.
+
+    Setting ``root_is_pure = False`` switches the wheel tag to
+    ``py3-none-<platform>`` (e.g. ``py3-none-manylinux_2_28_x86_64``,
+    ``py3-none-macosx_11_0_arm64``), which is correct: the package is
+    pure-Python from CPython's perspective (no ABI binding) but the
+    binaries inside are platform-specific.
+    """
+
+    def finalize_options(self):
+        super().finalize_options()
+        self.root_is_pure = False
+
+
 setup(
     cmdclass={
         "build_py": BuildPyCommand,
         "develop": DevelopCommand,
+        "bdist_wheel": BdistWheelPlatformSpecific,
     },
 )
