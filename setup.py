@@ -160,13 +160,26 @@ def _patch_cmakelists(cmakelists: pathlib.Path) -> None:
         "    target_link_libraries(pdprr ${Boost_LIBRARIES})\n"
         "endif ()\n"
     )
-    # `system` is header-only from Boost 1.69 onward and the modern
-    # Homebrew/vcpkg Boost packages don't ship libboost_system as a separate
-    # library. Mark it OPTIONAL and use $<TARGET_NAME_IF_EXISTS:...> so the
-    # same patch works against both old and new Boost layouts.
+    # Use per-component CONFIG-mode `find_package` instead of the
+    # umbrella `find_package(Boost COMPONENTS ...)`. Reasons:
+    #
+    # * Modern Boost (1.70+) installs per-component CMake configs
+    #   (`boost_program_options-config.cmake`, etc.), and so do brew,
+    #   apt, dnf, and vcpkg ports — all of which we target. The
+    #   per-component packages provide the `Boost::<comp>` imported
+    #   targets directly.
+    # * The umbrella call requires a top-level `BoostConfig.cmake`,
+    #   which vcpkg's Boost ports do **not** ship — only the per-
+    #   component configs. So on Windows the umbrella call fails even
+    #   with `Boost::*` imported targets present, and the fallback
+    #   (legacy FindBoost.cmake) doesn't read vcpkg's layout.
+    # * `system` is header-only since Boost 1.69 — request it as
+    #   non-REQUIRED and skip linking when its target is absent.
     boost_block_replacement = (
-        "find_package(Boost REQUIRED COMPONENTS program_options filesystem regex "
-        "OPTIONAL_COMPONENTS system)\n"
+        "find_package(boost_program_options CONFIG REQUIRED)\n"
+        "find_package(boost_filesystem CONFIG REQUIRED)\n"
+        "find_package(boost_regex CONFIG REQUIRED)\n"
+        "find_package(boost_system CONFIG)\n"
         "set(_pdtsp_boost_libs\n"
         "    Boost::program_options Boost::filesystem Boost::regex\n"
         "    $<TARGET_NAME_IF_EXISTS:Boost::system>)\n"
@@ -234,15 +247,6 @@ def _build_binaries() -> None:
             "-S", str(extracted),
             "-B", str(build_dir),
             "-DCMAKE_BUILD_TYPE=Release",
-            # Force `find_package(Boost ...)` to use the modern
-            # `BoostConfig.cmake` (shipped by Boost 1.70+ and by vcpkg)
-            # instead of CMake's legacy `FindBoost.cmake`. Upstream's
-            # `cmake_minimum_required(VERSION 3.8)` leaves policy CMP0167
-            # at OLD on CMake 3.30+, which falls back to FindBoost — and
-            # that legacy module can't locate vcpkg-installed Boost on
-            # Windows (observed: "Could NOT find Boost (missing:
-            # Boost_INCLUDE_DIR ...)" on windows-latest + CMake 3.31).
-            "-DCMAKE_POLICY_DEFAULT_CMP0167=NEW",
         ]
         # Propagate the cibuildwheel-supplied vcpkg toolchain on Windows;
         # this lets find_package(Boost ...) locate the components vcpkg
