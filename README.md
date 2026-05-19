@@ -15,24 +15,28 @@ traveling salesman problem"* (Transportation Science, 2022).
 
 ## Install
 
-Prebuilt wheels (no compiler needed on the user's machine):
+Prebuilt wheels for **Linux (x86_64) and macOS (x86_64 + arm64)**:
 
 ```bash
 pip install pdtsp
 ```
 
-Building from source requires CMake, a C++17 compiler, and Boost
-(`program_options`, `filesystem`, `system`, `regex`):
+**Windows is not yet supported by prebuilt wheels** — Windows users (and
+anyone on a platform without a wheel) install from source. That needs
+CMake, a C++17 compiler, and Boost (`program_options`, `filesystem`,
+`system`, `regex`):
 
 ```bash
 # Debian/Ubuntu
 sudo apt install cmake g++ libboost-program-options-dev libboost-filesystem-dev libboost-system-dev libboost-regex-dev
 # macOS
 brew install cmake boost
-# Windows (PowerShell)
+# Windows (MSVC + vcpkg)
 vcpkg install boost-program-options boost-filesystem boost-system boost-regex --triplet x64-windows-static-md
+# then in a Developer PowerShell:
+$env:CMAKE_TOOLCHAIN_FILE = "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
-pip install pdtsp             # or `pip install -e .` from a checkout
+pip install pdtsp             # downloads sdist and builds from source
 ```
 
 ## Quick start

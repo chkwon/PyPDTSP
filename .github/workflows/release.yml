@@ -15,17 +15,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Windows is deferred to v0.2 — vcpkg's per-component Boost ports
+        # are incompatible with both the modern BoostConfig.cmake path and
+        # the legacy FindBoost.cmake path our patched CMakeLists relies on.
+        # Windows users can still install from sdist (`pip install pdtsp`
+        # with MSVC + Boost on PATH).
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-
-      - name: Install Boost on Windows (vcpkg, before cibuildwheel)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          /c/vcpkg/vcpkg install boost-program-options boost-filesystem boost-system boost-regex --triplet x64-windows-static-md
 
       - uses: pypa/cibuildwheel@v2.21
 

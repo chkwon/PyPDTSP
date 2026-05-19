@@ -13,7 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Windows is deferred to v0.2 — vcpkg's per-component Boost ports
+        # don't ship BoostConfig.cmake, and the legacy FindBoost.cmake path
+        # can't locate them via the vcpkg toolchain. Tracking issue should
+        # be opened before re-adding Windows here.
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.10", "3.13"]
 
     steps:
@@ -32,20 +36,6 @@ jobs:
       - name: Install Boost + CMake (macOS)
         if: runner.os == 'macOS'
         run: brew install boost cmake
-
-      - name: Install Boost (Windows / vcpkg)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          # vcpkg is pre-installed on windows-latest at C:/vcpkg
-          /c/vcpkg/vcpkg install boost-program-options boost-filesystem boost-system boost-regex --triplet x64-windows-static-md
-
-      - name: Set CMake toolchain (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> "$GITHUB_ENV"
-          echo "VCPKG_TARGET_TRIPLET=x64-windows-static-md" >> "$GITHUB_ENV"
 
       # ----------------------------------------------------------------- py
       - uses: actions/setup-python@v5
@@ -66,7 +56,6 @@ jobs:
         run: python -m pip install ".[test]"
 
       - name: Verify binaries are in the installed package
-        shell: bash
         run: |
           python - <<'PY'
           import pathlib, pdtsp
@@ -74,8 +63,8 @@ jobs:
           print("pdtsp installed at:", pkg)
           binaries = list(pkg.glob("pdphgs*")) + list(pkg.glob("pdprr*"))
           print("binaries:", [b.name for b in binaries])
-          assert any(b.name in ("pdphgs", "pdphgs.exe") for b in binaries), "missing pdphgs"
-          assert any(b.name in ("pdprr",  "pdprr.exe")  for b in binaries), "missing pdprr"
+          assert any(b.name == "pdphgs" for b in binaries), "missing pdphgs"
+          assert any(b.name == "pdprr"  for b in binaries), "missing pdprr"
           PY
 
       - name: Run tests (via --pyargs from outside the repo)
@@ -85,7 +74,6 @@ jobs:
         # (without). `--pyargs pdtsp.tests` imports tests from the
         # installed package; the small-PDT fixture is inlined in the test,
         # so no repo-relative paths are needed.
-        shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/pytest-run"
           cd "$RUNNER_TEMP/pytest-run"
