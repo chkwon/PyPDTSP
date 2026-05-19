@@ -39,7 +39,25 @@ examples/                user-facing example scripts
    `--verbose` is off). Adjust `pdtsp/_io.py::parse_stdout` if needed.
 5. If CLI flags changed, update the two dataclasses in
    `pdtsp/parameters.py` and the README's parameter tables.
-6. Run the full local smoke test: `pip install -e . && pytest pdtsp/tests -v`.
+6. Run the full local smoke test:
+   `pip install -e . --config-settings editable_mode=compat && pytest pdtsp/tests -v`.
+
+## Editable installs need `editable_mode=compat`
+
+PEP 660 editable installs (`pip install -e .`) default to setuptools'
+"lenient" strategy, which creates a `.pth` shim pointing at the source
+directory and **skips invoking `build_py`/`develop`** on some
+Python + OS combinations (observed on macOS and Windows with Python 3.10).
+That means our custom `BuildPyCommand` doesn't run and the binaries never
+get built.
+
+Always pass `--config-settings editable_mode=compat` for development
+installs. This forces the legacy `setup.py develop` path, which invokes
+our `DevelopCommand` and produces `pdtsp/pdphgs` + `pdtsp/pdprr`.
+
+CI uses the same flag (`.github/workflows/ci.yml`). Non-editable installs
+(`pip install .` or wheel builds via cibuildwheel) always invoke
+`build_py`, so this caveat doesn't apply there.
 
 ## The CMakeLists patch
 

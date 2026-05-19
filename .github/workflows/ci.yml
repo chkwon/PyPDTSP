@@ -54,7 +54,13 @@ jobs:
           cache: pip
 
       - name: Install PyPDTSP (builds pdphgs and pdprr from upstream)
-        run: python -m pip install -e ".[test]"
+        # `editable_mode=compat` forces the legacy `setup.py develop` path,
+        # which invokes our custom DevelopCommand and builds the binaries.
+        # Without this flag, PEP 660's default "lenient" strategy creates a
+        # thin .pth shim on some Python+OS combos (observed on macOS+Windows
+        # Python 3.10) and silently skips our build_py / develop subclass,
+        # leaving pdtsp/pdphgs and pdtsp/pdprr missing.
+        run: python -m pip install -e ".[test]" --config-settings editable_mode=compat
 
       - name: Verify binaries were built
         shell: bash

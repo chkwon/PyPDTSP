@@ -1,5 +1,11 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+# setuptools>=77 is the first version to understand PEP 639 (`license = "MIT"`
+# as an SPDX string + `license-files = [...]`). That version of setuptools
+# imports `packaging.licenses`, which was added in packaging 24.2 — so we
+# pin both. Without the explicit packaging pin, cibuildwheel's build
+# isolation has been observed to pull an older packaging and crash with
+# `ImportError: Cannot import packaging.licenses`.
+requires = ["setuptools>=77", "wheel", "packaging>=24.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
