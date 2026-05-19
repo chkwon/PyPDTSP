@@ -202,9 +202,13 @@ def _build_binaries() -> None:
 
         print("PyPDTSP: extracting upstream tarball")
         with tarfile.open(tarball, "r:gz") as tf:
-            # `filter='data'` is the Python 3.14 default; pin it for forward-
-            # compatibility and to avoid the warning on 3.12+.
-            tf.extractall(td, filter="data")
+            # `filter='data'` is the safe extraction default starting in
+            # Python 3.14. Pass it when available (3.12+); on older Pythons
+            # the kwarg doesn't exist and would raise TypeError.
+            if sys.version_info >= (3, 12):
+                tf.extractall(td, filter="data")
+            else:
+                tf.extractall(td)
         try:
             extracted = next(td.glob("PDTSP-*"))
         except StopIteration:
@@ -230,6 +234,15 @@ def _build_binaries() -> None:
             "-S", str(extracted),
             "-B", str(build_dir),
             "-DCMAKE_BUILD_TYPE=Release",
+            # Force `find_package(Boost ...)` to use the modern
+            # `BoostConfig.cmake` (shipped by Boost 1.70+ and by vcpkg)
+            # instead of CMake's legacy `FindBoost.cmake`. Upstream's
+            # `cmake_minimum_required(VERSION 3.8)` leaves policy CMP0167
+            # at OLD on CMake 3.30+, which falls back to FindBoost — and
+            # that legacy module can't locate vcpkg-installed Boost on
+            # Windows (observed: "Could NOT find Boost (missing:
+            # Boost_INCLUDE_DIR ...)" on windows-latest + CMake 3.31).
+            "-DCMAKE_POLICY_DEFAULT_CMP0167=NEW",
         ]
         # Propagate the cibuildwheel-supplied vcpkg toolchain on Windows;
         # this lets find_package(Boost ...) locate the components vcpkg
