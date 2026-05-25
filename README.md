@@ -54,8 +54,8 @@ data = {
 }
 
 result = HGSSolver(HGSParameters(time_limit=10, seed=42)).solve(data)
-print(result.cost)    # 4.65...
-print(result.route)   # [0, 1, 3, 2, 4, 0]
+print(result.cost)    # 5.0
+print(result.route)   # [0, 1, 2, 4, 3, 0]
 ```
 
 The Ruin & Recreate variant is a drop-in replacement:
