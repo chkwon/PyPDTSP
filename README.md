@@ -62,7 +62,13 @@ The Ruin & Recreate variant is a drop-in replacement:
 
 ```python
 from pdtsp import RRSolver, RRParameters
-result = RRSolver(RRParameters(time_limit=10, fast=True)).solve(data)
+
+solver = RRSolver(RRParameters(time_limit=10, seed=42, it=10_000, fast=True))
+result = solver.solve(data)
+
+print(result.cost)
+print(result.time)
+print(result.route)
 ```
 
 ## Explicit distance matrix (Grubhub format)
